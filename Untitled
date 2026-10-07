@@ -14,7 +14,7 @@ int ForwardSteerServoAngle  = 90;   // Fine-tune the steering heading = 80-100 C
 int TurnWheelSpeed     = ForwardWheelSpeed-0; // min-max = 0-255 Choose an even number = possible to divide by 2
 int BackwardWheelSpeed = ForwardWheelSpeed-0; // min-max = 0-255 Choose an even number = possible to divide by 2
 int TurnTime           = 4;     // Time for turning => turning angle of vehicle. Use ~0-10
-
+    
 
 
 
