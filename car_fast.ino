@@ -16,18 +16,18 @@
 //      Car standing still, wheels already at full right lock (SteerRightAngle),
 //      then drive at TurnSpeed until the car has turned 90 degrees.
 //      Measure how far the MIDDLE OF THE FRONT AXLE moved SIDEWAYS.
-float RadiusRight_cm = 40;
+float RadiusRight_cm = 37;
 
 // [M2] MEASURE: Turning radius, LEFT. Same as M1 but full left lock.
-float RadiusLeft_cm = 60;
+float RadiusLeft_cm = 58;
 
 // [M3] MEASURE: Car width at its WIDEST point
 //      (wheels, chassis, battery pack: whatever sticks out furthest).
-float CarWidth_cm = 16;
+float CarWidth_cm = 15;
 
 // [M4] MEASURE: How far the ultrasonic sensor's front face is BEHIND the
 //      front-most point of the car. Use 0 if the sensor is the front-most part.
-float SensorSetback_cm = 0;
+float SensorSetback_cm = 1.5;
 
 // [M5] OPTIONAL MEASURE: Time for one FULL circle at TurnSpeed and full lock,
 //      in milliseconds (e.g. 3.2 s = 3200). Leave at 0 if not measured.
@@ -52,21 +52,20 @@ int SteerCenterAngle = 90;
 // [C2] Steering servo angle that makes the car turn LEFT when driving forward,
 //      at full lock. (Rear steering: the wheels will point the OTHER way.)
 //      Use a value a few degrees short of where the servo starts buzzing.
-int SteerLeftAngle = 150;
+int SteerLeftAngle = 45;
 
 // [C3] Same as C2, for turning RIGHT.
-int SteerRightAngle = 40;
+int SteerRightAngle = 150;
 
 // [C4] Distance-sensor servo angle where the sensor points straight ahead.
-int SensorCenterAngle = 110;
-
+int SensorCenterAngle = 92;
+// 47 54
 // [C5] Photoresistor: cover it with your hand. Reading goes DOWN -> true, UP -> false.
 bool DarkerMeansLower = false;
 
 // [C6] Photoresistor: fraction of room brightness that counts as "in the garage".
 //      Check the reading inside the actual box (test mode prints it).
-float DarkFraction = 0.55;
-
+float DarkFraction = 0.70;
 
 // =====================================================================
 //  OTHER SETTINGS (fine to leave as they are at first)
@@ -75,11 +74,11 @@ float DarkFraction = 0.55;
 bool SteeringTest = false;     // true = run the test routine instead of driving
 bool Debug        = false;     // true = print sensor readings while driving (slows it slightly)
 
-int PanAngle    = 35;          // how far the sensor looks right/left while sweeping
+int PanAngle    = 25;          // how far the sensor looks right/left while sweeping
 int PanStepTime = 90;          // ms per sweep position
 
-int FullSpeed    = 220;        // open road (0-255)
-int TurnSpeed    = 180;        // while avoiding. Measure M1/M2/M5 at THIS speed
+int FullSpeed    = 180;        // open road (0-255)
+int TurnSpeed    = 140;        // while avoiding. Measure M1/M2/M5 at THIS speed
 int ReverseSpeed = 200;
 int GarageSpeed  = 150;
 int KickTime     = 80;         // ms of full power when starting to move
@@ -318,7 +317,14 @@ void smartDelay(unsigned long ms)
     while (millis() - t0 < ms) checkGarage();
 }
 
-
+// true if a diagonal reading is something IN the car's path, not just beside it
+bool inPath(float d)
+{
+    float a = PanAngle * PI / 180.0;
+    float sideways = d * sin(a);
+    float ahead    = d * cos(a);
+    return sideways < CarWidth_cm / 2 + CanRadius_cm + SafetyMargin_cm && ahead < AvoidDist;
+}
 // ======================= Decisions ===================================
 
 // +1 right, -1 left. Prefers right (the car's strong side), but switches
@@ -349,15 +355,16 @@ void runSteeringTest()
 {
     delay(1000);
     printGeometry();
-    Serial.println("Steering: car should turn LEFT");  steer(-1); delay(1500);
-    Serial.println("Steering: center");                steer(0);  delay(1000);
-    Serial.println("Steering: car should turn RIGHT"); steer(1);  delay(1500);
-    steer(0);
+    //Serial.println("Steering: car should turn LEFT");  steer(-1); delay(1500);
+    //Serial.println("Steering: center");                steer(0);  delay(1000);
+   // Serial.println("Steering: car should turn RIGHT"); steer(1);  delay(1500);
+    //steer(0);
     Serial.println("Sensor LEFT");  panServo.write(SensorCenterAngle + PanAngle); delay(1500);
+        panServo.write(SensorCenterAngle); delay(1500);
     Serial.println("Sensor RIGHT"); panServo.write(SensorCenterAngle - PanAngle); delay(1500);
     panServo.write(SensorCenterAngle);
-    Serial.println("Motor FORWARD"); forward(FullSpeed); delay(1000);
-    brake();
+   /* Serial.println("Motor FORWARD"); forward(FullSpeed); delay(1000);
+    brake();*/
     while (true) {
         Serial.print("Distance from front: "); Serial.print(ping());
         Serial.print("   Light: "); Serial.println(readLight());
@@ -444,6 +451,14 @@ void loop()
         turnDir = chooseSide();
         turnStart = now;
         steer(turnDir);
+        forward(TurnSpeed);
+        return;
+    }
+        // 5b. Something ahead-left or ahead-right in our path: steer hard away while it's there
+    bool leftBlocked  = inPath(distL);
+    bool rightBlocked = inPath(distR);
+    if (leftBlocked != rightBlocked) {
+        steer(leftBlocked ? 1 : -1);
         forward(TurnSpeed);
         return;
     }
